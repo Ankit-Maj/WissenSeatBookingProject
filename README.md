@@ -1,4 +1,4 @@
-<h1>Problem statement</h1>
+#Problem statement
 
 Design a seat booking system with the following features:
 
