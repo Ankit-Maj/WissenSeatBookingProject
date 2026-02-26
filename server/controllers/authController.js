@@ -2,6 +2,15 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user).select("-password");
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
 exports.signup = async (req, res) => {
   try {
     const { username, email, password, batch, squad } = req.body;
