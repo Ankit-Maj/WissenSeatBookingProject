@@ -9,11 +9,11 @@ require("dotenv").config();
 
 const app = express();
 
-app.use("/api/bookings", bookingRoutes);
 app.use(cors());
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/bookings", bookingRoutes);
 app.get("/", (req, res) => {
   res.send("API Running");
 });
