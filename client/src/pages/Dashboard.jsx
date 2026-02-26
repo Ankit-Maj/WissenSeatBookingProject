@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import API from "../services/api";
 
 export default function Dashboard() {
@@ -21,6 +22,9 @@ export default function Dashboard() {
       <p>Welcome {user.username}</p>
       <p>Batch: {user.batch}</p>
       <p>Squad: {user.squad}</p>
+      <Link to="/calendar">
+        <button>Open Calendar</button>
+      </Link>
     </div>
   );
 }
