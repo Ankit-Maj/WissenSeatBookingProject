@@ -7,7 +7,7 @@ const MAX_ADVANCE_DAYS = 14;
 
 exports.bookSeat = async (req, res) => {
   try {
-    const { sessionId, type } = req.body;
+    const { sessionId, type, requestedSeat } = req.body;
 
     const session = await Session.findById(sessionId);
     if (!session) return res.status(404).json({ msg: "Session not found" });
@@ -42,79 +42,68 @@ exports.bookSeat = async (req, res) => {
     if (existingBooking)
       return res.status(400).json({ msg: "You already have a booking for this session" });
 
-    let seatNumber;
+    let seatNumber = requestedSeat;
+    const activeBookings = session.bookings.filter(b => b.status === "active");
 
     if (type === "reserved") {
-      // Must be the batch that owns this day
       if (!canBookReservedSeat(user, session))
         return res.status(400).json({ msg: `This day is reserved for ${session.reservedForBatch}` });
 
-      const reservedBooked = session.bookings.filter(
-        b => b.type === "reserved" && b.status === "active"
-      ).length;
+      if (seatNumber) {
+        if (seatNumber < 1 || seatNumber > session.reservedSeats)
+          return res.status(400).json({ msg: `Invalid seat. Reserved seats are 1-${session.reservedSeats}` });
 
-      if (reservedBooked >= session.reservedSeats)
-        return res.status(400).json({ msg: "All reserved seats are full" });
-
-      // Assign lowest available reserved seat (1-40)
-      const usedReservedSeats = new Set(
-        session.bookings
-          .filter(b => b.type === "reserved" && b.status === "active")
-          .map(b => b.seatNumber)
-      );
-      for (let s = 1; s <= session.reservedSeats; s++) {
-        if (!usedReservedSeats.has(s)) { seatNumber = s; break; }
+        const isTaken = activeBookings.some(b => b.seatNumber === seatNumber);
+        if (isTaken) return res.status(400).json({ msg: `Seat ${seatNumber} is already taken` });
+      } else {
+        const used = new Set(activeBookings.filter(b => b.type === "reserved").map(b => b.seatNumber));
+        for (let s = 1; s <= session.reservedSeats; s++) {
+          if (!used.has(s)) { seatNumber = s; break; }
+        }
+        if (!seatNumber) return res.status(400).json({ msg: "All reserved seats are full" });
       }
 
     } else if (type === "floating") {
-      // Floaters open only after 3PM the day before
       if (!isFloatingAllowed(session.date))
         return res.status(400).json({ msg: "Floating seats open after 3 PM the previous day" });
 
-      // Count all floating types (normal + temporary)
-      const floatingBooked = session.bookings.filter(
-        b => (b.type === "floating" || b.type === "temporaryFloating") && b.status === "active"
-      ).length;
+      const tempFloatPlaceholders = activeBookings.filter(b => b.type === "temporaryFloating" && !b.userId);
+      const totalFloatCap = session.floatingSeats + activeBookings.filter(b => b.type === "temporaryFloating").length;
 
-      // Temporary floaters created when reserved seats are vacated
-      const temporaryFloatingCount = session.bookings.filter(
-        b => b.type === "temporaryFloating" && b.status === "active"
-      ).length;
+      if (seatNumber) {
+        // Check if it's a temp floater or a normal floater
+        const isTempPlaceholder = tempFloatPlaceholders.find(p => p.seatNumber === seatNumber);
+        if (isTempPlaceholder) {
+          isTempPlaceholder.userId = user._id;
+          isTempPlaceholder.username = user.username;
+          await session.save();
+          return res.json({ msg: `Seat ${seatNumber} booked (temporary floater)`, seatNumber });
+        }
 
-      const totalFloatingCapacity = session.floatingSeats + temporaryFloatingCount;
+        if (seatNumber < 41 || seatNumber > 50)
+          return res.status(400).json({ msg: "Invalid seat. Standard floating seats are 41-50" });
 
-      if (floatingBooked >= totalFloatingCapacity)
-        return res.status(400).json({ msg: "All floating seats are full" });
+        const isTaken = activeBookings.some(b => b.seatNumber === seatNumber);
+        if (isTaken) return res.status(400).json({ msg: `Seat ${seatNumber} is already taken` });
+      } else {
+        // Auto-assign temp first, then standard
+        if (tempFloatPlaceholders.length > 0) {
+          const placeholder = tempFloatPlaceholders[0];
+          placeholder.userId = user._id;
+          placeholder.username = user.username;
+          seatNumber = placeholder.seatNumber;
+          await session.save();
+          return res.json({ msg: `Seat ${seatNumber} booked (temporary floater)`, seatNumber });
+        }
 
-      // Assign a temporary-floating seat first if one is free, else a regular floating seat
-      const usedFloatingSeats = new Set(
-        session.bookings
-          .filter(b => (b.type === "floating" || b.type === "temporaryFloating") && b.status === "active" && b.userId)
-          .map(b => b.seatNumber)
-      );
-
-      // Temp floater placeholders — give one of these seat numbers to this user
-      const tempFloaterPlaceholders = session.bookings.filter(
-        b => b.type === "temporaryFloating" && b.status === "active" && !b.userId
-      );
-
-      if (tempFloaterPlaceholders.length > 0) {
-        // Take over a vacated reserved seat
-        const placeholder = tempFloaterPlaceholders[0];
-        placeholder.userId = user._id;
-        placeholder.username = user.username;
-        seatNumber = placeholder.seatNumber;
-        await session.save();
-        return res.json({ msg: `Seat ${seatNumber} booked (temporary floater)`, seatNumber });
+        const used = new Set(activeBookings.filter(b => b.type === "floating").map(b => b.seatNumber));
+        for (let s = 41; s <= 50; s++) {
+          if (!used.has(s)) { seatNumber = s; break; }
+        }
+        if (!seatNumber) return res.status(400).json({ msg: "All floating seats are full" });
       }
-
-      // Assign a regular floating seat (41-50)
-      for (let s = 41; s <= 50; s++) {
-        if (!usedFloatingSeats.has(s)) { seatNumber = s; break; }
-      }
-
     } else {
-      return res.status(400).json({ msg: "Invalid booking type. Use 'reserved' or 'floating'" });
+      return res.status(400).json({ msg: "Invalid booking type" });
     }
 
     session.bookings.push({
@@ -149,7 +138,7 @@ exports.cancelSeat = async (req, res) => {
       return res.status(400).json({ msg: "Cannot cancel a past session" });
 
     const booking = session.bookings.find(
-      b => b.userId && b.userId.toString() === req.user && b.status === "active"
+      b => b.userId && String(b.userId) === String(req.user) && b.status === "active"
     );
 
     if (!booking)

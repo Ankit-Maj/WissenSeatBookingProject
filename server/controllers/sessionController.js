@@ -35,7 +35,11 @@ exports.generateSessions = async (req, res) => {
       sessions.push(session);
     }
 
-    res.json({ msg: "Sessions generated", count: sessions.length, sessions });
+    const msg = sessions.length > 0
+      ? `Successfully generated ${sessions.length} new sessions.`
+      : "Sessions for the next 30 days are already up to date.";
+
+    res.json({ msg, count: sessions.length, sessions });
 
   } catch (err) {
     res.status(500).json({ msg: err.message });

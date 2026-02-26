@@ -2,12 +2,13 @@ import { useState, useEffect, useContext } from "react";
 import API from "../services/api";
 import Navbar from "../components/Navbar";
 import { ToastContext } from "../context/ToastContext";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Calendar as CalendarIcon,
   Users,
   Armchair,
   CheckCircle,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [genLoading, setGenLoading] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
+  const navigate = useNavigate();
 
   const { addToast } = useContext(ToastContext);
 
@@ -45,8 +47,8 @@ export default function Dashboard() {
   const handleGenerate = async () => {
     setGenLoading(true);
     try {
-      await API.post("/sessions/generate");
-      addToast("Next 30 days of sessions generated!", "success");
+      const res = await API.post("/sessions/generate");
+      addToast(res.data.msg, "success");
       loadData();
     } catch (err) {
       addToast("Failed to generate sessions", "error");
@@ -71,7 +73,7 @@ export default function Dashboard() {
 
   /* Stats derived from loaded sessions */
   const activeBookingsCount = sessions.reduce((acc, s) => {
-    return acc + (s.bookings?.filter(b => b.userId === user?._id && b.status === "active").length || 0);
+    return acc + (s.bookings?.filter(b => b.userId && String(b.userId) === String(user?._id) && b.status === "active").length || 0);
   }, 0);
 
   const upcomingSessions = sessions
@@ -143,13 +145,20 @@ export default function Dashboard() {
               ))}
               {blanks.map(b => <div key={`b-${b}`} className="cal-cell other-month" />)}
               {days.map(d => {
-                const dateStr = new Date(year, month, d).toLocaleDateString('en-CA');
-                const session = sessions.find(s => s.date.startsWith(dateStr));
-                const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
+                const session = sessions.find(s => {
+                  const dObj = new Date(s.date);
+                  return dObj.getFullYear() === year && dObj.getMonth() === month && dObj.getDate() === d;
+                });
+                const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
 
                 return (
-                  <div key={d} className={`cal-cell clickable ${isToday ? 'today' : ''}`} onClick={() => session && (window.location.href = `/session/${session._id}`)}>
-                    <div className="cal-day-num">{d}</div>
+                  <div key={d} className={`cal-cell clickable ${isToday ? 'today' : ''}`} onClick={() => session && navigate(`/session/${session._id}`)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div className="cal-day-num">{d}</div>
+                      {session?.bookings?.some(b => String(b.userId) === String(user?._id) && b.status === "active") && (
+                        <CheckCircle2 size={12} style={{ color: "var(--accent)" }} />
+                      )}
+                    </div>
                     {session && !session.isHoliday && (
                       <span className={`cal-event ${session.reservedForBatch === 'BatchA' ? 'batch-a' : 'batch-b'}`}>
                         {session.reservedForBatch === 'BatchA' ? 'A' : 'B'}
@@ -175,31 +184,39 @@ export default function Dashboard() {
               </h3>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {upcomingSessions.length === 0 && <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>No sessions available</p>}
-                {upcomingSessions.map(s => (
-                  <Link key={s._id} to={`/session/${s._id}`} style={{ textDecoration: "none" }}>
-                    <div style={{
-                      padding: "1rem",
-                      background: "var(--bg-base)",
-                      borderRadius: "8px",
-                      border: "1px solid var(--border)",
-                      transition: "var(--transition)",
-                      cursor: "pointer",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center"
-                    }} className="card-hover">
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                          {new Date(s.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                {upcomingSessions.map(s => {
+                  const myBooking = s.bookings.find(b => String(b.userId) === String(user?._id) && b.status === 'active');
+                  return (
+                    <Link key={s._id} to={`/session/${s._id}`} style={{ textDecoration: "none" }}>
+                      <div style={{
+                        padding: "1rem",
+                        background: "var(--bg-base)",
+                        borderRadius: "8px",
+                        border: myBooking ? "1px solid var(--accent)" : "1px solid var(--border)",
+                        transition: "var(--transition)",
+                        cursor: "pointer",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }} className="card-hover">
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            {new Date(s.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            {myBooking && <CheckCircle2 size={14} style={{ color: "var(--accent)" }} />}
+                          </div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                            {s.reservedForBatch} • {50 - s.bookings.filter(b => b.status === 'active').length} available
+                          </div>
                         </div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                          {s.reservedForBatch} • {s.bookings.filter(b => b.status === 'active').length}/50
-                        </div>
+                        {myBooking ? (
+                          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)" }}>Seat {myBooking.seatNumber}</div>
+                        ) : (
+                          <MapPin size={16} style={{ color: "var(--text-muted)" }} />
+                        )}
                       </div>
-                      <MapPin size={16} style={{ color: "var(--text-muted)" }} />
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
 

@@ -10,7 +10,8 @@ import {
   Users,
   Armchair,
   Calendar as CalendarIcon,
-  ArrowRight
+  ArrowRight,
+  CheckCircle2
 } from "lucide-react";
 
 export default function Calendar() {
@@ -66,7 +67,10 @@ export default function Calendar() {
     return d.getFullYear() === year && d.getMonth() === month;
   });
 
-  const selectedSession = selectedDay ? sessions.find(s => s.date.startsWith(selectedDay)) : null;
+  const selectedSession = selectedDay ? sessions.find(s => {
+    const dObj = new Date(s.date);
+    return dObj.getFullYear() === year && dObj.getMonth() === month && dObj.getDate() === parseInt(selectedDay.split('-')[2]);
+  }) : null;
 
   if (loading) return (
     <div className="page-shell">
@@ -109,26 +113,34 @@ export default function Calendar() {
               ))}
               {blanks.map(b => <div key={`b-${b}`} className="cal-cell other-month" />)}
               {days.map(d => {
-                const dateStr = new Date(year, month, d).toLocaleDateString('en-CA');
-                const session = sessions.find(s => s.date.startsWith(dateStr));
-                const isSelected = selectedDay === dateStr;
-                const isToday = new Date().toLocaleDateString('en-CA') === dateStr;
+                const dateKey = new Date(year, month, d).toLocaleDateString('en-CA');
+                const session = sessions.find(s => {
+                  const dObj = new Date(s.date);
+                  return dObj.getFullYear() === year && dObj.getMonth() === month && dObj.getDate() === d;
+                });
+                const isSelected = selectedDay === dateKey;
+                const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
 
                 return (
                   <div
                     key={d}
                     className={`cal-cell clickable ${isSelected ? 'today' : ''}`}
                     style={isSelected ? { border: "2px solid var(--accent)", background: "var(--bg-card-hover)" } : {}}
-                    onClick={() => setSelectedDay(dateStr)}
+                    onClick={() => setSelectedDay(dateKey)}
                   >
-                    <div className="cal-day-num">{d}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div className="cal-day-num">{d}</div>
+                      {session?.bookings?.some(b => String(b.userId) === String(user?._id) && b.status === "active") && (
+                        <CheckCircle2 size={12} style={{ color: "var(--accent)" }} />
+                      )}
+                    </div>
                     {session && !session.isHoliday && (
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                         <span className={`cal-event ${session.reservedForBatch === 'BatchA' ? 'batch-a' : 'batch-b'}`}>
-                          {session.reservedForBatch}
+                          {session.reservedForBatch === 'BatchA' ? 'A' : 'B'}
                         </span>
                         <div style={{ fontSize: "0.55rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                          {session.bookings.filter(b => b.status === "active").length}/50 Booked
+                          {session.bookings.filter(b => b.status === "active").length}/50
                         </div>
                       </div>
                     )}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ─── Design Tokens ─────────────────────────────────────────────────── */
 :root {
@@ -417,6 +417,19 @@ h3 {
   box-shadow: 0 0 10px var(--seat-mine);
 }
 
+.seat.selected {
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+  transform: scale(1.1);
+  z-index: 1;
+}
+
+.seat.free:hover:not(.selected) {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
 /* ─── Notifications (Toast) ────────────────────────────────────────── */
 .toast-container {
   position: fixed;
@@ -464,5 +477,23 @@ h3 {
 
   .cal-grid {
     font-size: 0.625rem;
+  }
+
+  .hide-mobile {
+    display: none;
+  }
+}
+
+.spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }

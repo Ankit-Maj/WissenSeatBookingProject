@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { ToastContext } from "../context/ToastContext";
@@ -14,8 +14,15 @@ export default function Signup() {
     squad: "Squad1"
   });
   const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState(null);
   const { addToast } = useContext(ToastContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    API.get("/auth/stats")
+      .then(res => setStats(res.data))
+      .catch(() => addToast("Could not load organization stats", "warning"));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -133,8 +140,8 @@ export default function Signup() {
                     value={formData.batch}
                     onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
                   >
-                    <option value="BatchA">Batch A</option>
-                    <option value="BatchB">Batch B</option>
+                    <option value="BatchA">Batch A {stats ? `(${stats.stats.BatchA}/${stats.limits.batch})` : ""}</option>
+                    <option value="BatchB">Batch B {stats ? `(${stats.stats.BatchB}/${stats.limits.batch})` : ""}</option>
                   </select>
                 </div>
               </div>
@@ -149,9 +156,16 @@ export default function Signup() {
                     value={formData.squad}
                     onChange={(e) => setFormData({ ...formData, squad: e.target.value })}
                   >
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <option key={i + 1} value={`Squad${i + 1}`}>Squad {i + 1}</option>
-                    ))}
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const sName = `Squad${i + 1}`;
+                      const count = stats?.stats[sName] || 0;
+                      const limit = stats?.limits?.squad || 15;
+                      return (
+                        <option key={i + 1} value={sName} disabled={count >= limit}>
+                          Squad {i + 1} {stats ? `(${count}/${limit})` : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -167,6 +181,26 @@ export default function Signup() {
               Already have an account? <Link to="/">Sign in</Link>
             </p>
           </footer>
+
+          <div style={{
+            marginTop: "2rem",
+            padding: "1rem",
+            background: "var(--bg-base)",
+            borderRadius: "8px",
+            border: "1px solid var(--border)",
+            display: "flex",
+            gap: "0.75rem",
+            fontSize: "0.75rem",
+            lineHeight: "1.4"
+          }}>
+            <Users size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
+            <div>
+              <p style={{ color: "var(--text-secondary)", fontWeight: 700, marginBottom: "0.25rem" }}>Batch Schedule Hint:</p>
+              <p style={{ color: "var(--text-muted)" }}>
+                Batch A/B alternate Mon-Wed and Thu-Fri slots every week. Choose the batch that aligns with your squad assignments.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

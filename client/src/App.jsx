@@ -3,6 +3,8 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Calendar from "./pages/Calendar";
+import Sessions from "./pages/Sessions";
+import Batches from "./pages/Batches";
 import SessionView from "./pages/SessionView";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ToastProvider } from "./context/ToastContext";
@@ -16,6 +18,8 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+          <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
+          <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
           <Route path="/session/:sessionId" element={<ProtectedRoute><SessionView /></ProtectedRoute>} />
         </Routes>
       </ToastProvider>

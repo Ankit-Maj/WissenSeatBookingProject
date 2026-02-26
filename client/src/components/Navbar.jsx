@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import { LogOut, LayoutDashboard, Calendar as CalendarIcon, User } from "lucide-react";
+import { LogOut, LayoutDashboard, Calendar as CalendarIcon, User, Armchair, Hexagon } from "lucide-react";
 
 export default function Navbar({ user }) {
     const { logout } = useContext(AuthContext);
@@ -37,6 +37,14 @@ export default function Navbar({ user }) {
                             <Link to="/calendar" className="btn btn-ghost" style={{ padding: "0.5rem 0.75rem" }}>
                                 <CalendarIcon size={18} />
                                 <span className="hide-mobile">Calendar</span>
+                            </Link>
+                            <Link to="/sessions" className="btn btn-ghost" style={{ padding: "0.5rem 0.75rem" }}>
+                                <Armchair size={18} />
+                                <span className="hide-mobile">Sessions</span>
+                            </Link>
+                            <Link to="/batches" className="btn btn-ghost" style={{ padding: "0.5rem 0.75rem" }}>
+                                <Hexagon size={18} />
+                                <span className="hide-mobile">Batches</span>
                             </Link>
                         </div>
 
